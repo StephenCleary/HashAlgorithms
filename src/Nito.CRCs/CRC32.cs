@@ -48,11 +48,18 @@ namespace Nito.CRCs
             if (lookupTable.Length != 256)
                 throw new ArgumentException($"{nameof(lookupTable)} must have 256 entries, but it has {lookupTable.Length} entries.", nameof(lookupTable));
 
+#if !NETSTANDARD1_3
             this.HashSizeValue = 32;
+#endif
             this.definition = definition;
             this.lookupTable = lookupTable;
             this.Initialize();
         }
+
+#if NETSTANDARD1_3
+        /// <inheritdoc/>
+        public override int HashSize => 32;
+#endif
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CRC32"/> class with the specified definition.
@@ -190,12 +197,7 @@ namespace Nito.CRCs
             return "0x" + this.Result.ToString("X8", CultureInfo.InvariantCulture);
         }
 
-        /// <summary>
-        /// Routes data written to the object into the hash algorithm for computing the hash.
-        /// </summary>
-        /// <param name="array">The input to compute the hash code for.</param>
-        /// <param name="offset">The offset into the byte array from which to begin using data.</param>
-        /// <param name="count">The number of bytes in the byte array to use as data.</param>
+        /// <inheritdoc/>
         protected override void HashCore(byte[] array, int offset, int count)
         {
             _ = array ?? throw new ArgumentNullException(nameof(array));
@@ -208,12 +210,18 @@ namespace Nito.CRCs
             if (offset > array.Length - count)
                 throw new ArgumentException($"{nameof(offset)} must be less than or equal to the length of {nameof(array)} ({array.Length}) minus {nameof(count)} ({count}), but is equal to {offset}.");
 
+            DoHashCore(array.AsSpan().Slice(offset, count));
+        }
+
+        /// <inheritdoc/>
+        private void DoHashCore(ReadOnlySpan<byte> source)
+        {
             unchecked
             {
                 uint remainder = this.remainder;
-                for (int i = offset; i != offset + count; ++i)
+                for (int i = 0; i != source.Length; ++i)
                 {
-                    byte index = this.ReflectedIndex(remainder, array[i]);
+                    byte index = this.ReflectedIndex(remainder, source[i]);
                     remainder = this.ReflectedShift(remainder);
                     remainder ^= this.lookupTable[index];
                 }
@@ -222,14 +230,25 @@ namespace Nito.CRCs
             }
         }
 
-        /// <summary>
-        /// Finalizes the hash computation after the last data is processed by the cryptographic stream object.
-        /// </summary>
-        /// <returns>The computed hash code.</returns>
+#if !NETSTANDARD1_3 && !NETSTANDARD2_0
+        /// <inheritdoc/>
+        protected override void HashCore(ReadOnlySpan<byte> source) => DoHashCore(source);
+#endif
+
+        /// <inheritdoc/>
         protected override byte[] HashFinal()
         {
             return BitConverter.GetBytes(this.Result);
         }
+
+#if !NETSTANDARD1_3 && !NETSTANDARD2_0
+        /// <inheritdoc/>
+        protected override bool TryHashFinal(Span<byte> destination, out int bytesWritten)
+        {
+            bytesWritten = 4;
+            return BitConverter.TryWriteBytes(destination, Result);
+        }
+#endif
 
         /// <summary>
         /// Gets the index into the lookup array for a given remainder and data byte. Data byte reversal is taken into account.
