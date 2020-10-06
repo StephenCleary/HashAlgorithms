@@ -24,17 +24,17 @@ namespace Nito.CRCs
         /// <summary>
         /// A reference to the lookup table.
         /// </summary>
-        private readonly uint[] lookupTable;
+        private readonly uint[] _lookupTable;
 
         /// <summary>
         /// The CRC-32 algorithm definition.
         /// </summary>
-        private readonly Definition definition;
+        private readonly Definition _definition;
 
         /// <summary>
         /// The current value of the remainder.
         /// </summary>
-        private uint remainder;
+        private uint _remainder;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CRC32"/> class with the specified definition and lookup table.
@@ -49,11 +49,11 @@ namespace Nito.CRCs
                 throw new ArgumentException($"{nameof(lookupTable)} must have 256 entries, but it has {lookupTable.Length} entries.", nameof(lookupTable));
 
 #if !NETSTANDARD1_3
-            this.HashSizeValue = 32;
+            HashSizeValue = 32;
 #endif
-            this.definition = definition;
-            this.lookupTable = lookupTable;
-            this.Initialize();
+            _definition = definition;
+            _lookupTable = lookupTable;
+            Initialize();
         }
 
 #if NETSTANDARD1_3
@@ -85,13 +85,13 @@ namespace Nito.CRCs
         {
             get
             {
-                if (this.definition.ReverseResultBeforeFinalXor != this.definition.ReverseDataBytes)
+                if (_definition.ReverseResultBeforeFinalXor != _definition.ReverseDataBytes)
                 {
-                    return HackersDelight.Reverse(this.remainder) ^ this.definition.FinalXorValue;
+                    return HackersDelight.Reverse(_remainder) ^ _definition.FinalXorValue;
                 }
                 else
                 {
-                    return this.remainder ^ this.definition.FinalXorValue;
+                    return _remainder ^ _definition.FinalXorValue;
                 }
             }
         }
@@ -178,13 +178,13 @@ namespace Nito.CRCs
         /// </summary>
         public override void Initialize()
         {
-            if (this.definition.ReverseDataBytes)
+            if (_definition.ReverseDataBytes)
             {
-                this.remainder = HackersDelight.Reverse(this.definition.Initializer);
+                _remainder = HackersDelight.Reverse(_definition.Initializer);
             }
             else
             {
-                this.remainder = this.definition.Initializer;
+                _remainder = _definition.Initializer;
             }
         }
 
@@ -194,7 +194,7 @@ namespace Nito.CRCs
         /// <returns>A <see cref="System.String"/> that represents this instance.</returns>
         public override string ToString()
         {
-            return "0x" + this.Result.ToString("X8", CultureInfo.InvariantCulture);
+            return "0x" + Result.ToString("X8", CultureInfo.InvariantCulture);
         }
 
         /// <inheritdoc/>
@@ -218,15 +218,15 @@ namespace Nito.CRCs
         {
             unchecked
             {
-                uint remainder = this.remainder;
+                uint remainder = _remainder;
                 for (int i = 0; i != source.Length; ++i)
                 {
-                    byte index = this.ReflectedIndex(remainder, source[i]);
-                    remainder = this.ReflectedShift(remainder);
-                    remainder ^= this.lookupTable[index];
+                    byte index = ReflectedIndex(remainder, source[i]);
+                    remainder = ReflectedShift(remainder);
+                    remainder ^= _lookupTable[index];
                 }
 
-                this.remainder = remainder;
+                _remainder = remainder;
             }
         }
 
@@ -238,7 +238,7 @@ namespace Nito.CRCs
         /// <inheritdoc/>
         protected override byte[] HashFinal()
         {
-            return BitConverter.GetBytes(this.Result);
+            return BitConverter.GetBytes(Result);
         }
 
 #if !NETSTANDARD1_3 && !NETSTANDARD2_0
@@ -260,7 +260,7 @@ namespace Nito.CRCs
         {
             unchecked
             {
-                if (this.definition.ReverseDataBytes)
+                if (_definition.ReverseDataBytes)
                 {
                     return (byte)(remainder ^ data);
                 }
@@ -280,7 +280,7 @@ namespace Nito.CRCs
         {
             unchecked
             {
-                if (this.definition.ReverseDataBytes)
+                if (_definition.ReverseDataBytes)
                 {
                     return remainder >> 8;
                 }
