@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <TargetFrameworks>netstandard1.3;netstandard2.0;netstandard2.1</TargetFrameworks>
+    <Description>Hash algorithm implementation helper types.</Description>
+    <PackageTags>hash</PackageTags>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)'=='netstandard1.3' Or '$(TargetFramework)'=='netstandard2.0'">

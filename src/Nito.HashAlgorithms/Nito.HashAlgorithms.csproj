@@ -3,6 +3,8 @@
   <PropertyGroup>
     <TargetFrameworks>netstandard1.3;netstandard2.0;netstandard2.1</TargetFrameworks>
     <IsMetapackage>true</IsMetapackage>
+    <Description>Hash algorithm implementations, including CRC32 and CRC16.</Description>
+    <PackageTags>hash;crc;crc32;crc16</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
