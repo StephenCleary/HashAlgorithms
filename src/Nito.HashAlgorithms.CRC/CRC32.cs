@@ -1,30 +1,30 @@
 ﻿using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
-using System.Security.Cryptography;
 using System.Collections.Concurrent;
 using System.Globalization;
 
-namespace Nito.CRCs
+namespace Nito.HashAlgorithms
 {
     /// <summary>
-    /// A generalized CRC-16 algorithm.
+    /// A generalized CRC-32 algorithm.
     /// </summary>
-    public sealed class CRC16 : HashAlgorithm
+    public sealed class CRC32 : HashAlgorithmBase
     {
         /// <summary>
         /// The lookup tables for non-reversed polynomials.
         /// </summary>
-        private static readonly ConcurrentDictionary<ushort, ushort[]> NormalLookupTables = new ConcurrentDictionary<ushort, ushort[]>();
+        private static readonly ConcurrentDictionary<uint, uint[]> NormalLookupTables = new ConcurrentDictionary<uint, uint[]>();
         
         /// <summary>
         /// The lookup tables for reversed polynomials.
         /// </summary>
-        private static readonly ConcurrentDictionary<ushort, ushort[]> ReversedLookupTables = new ConcurrentDictionary<ushort, ushort[]>();
+        private static readonly ConcurrentDictionary<uint, uint[]> ReversedLookupTables = new ConcurrentDictionary<uint, uint[]>();
 
         /// <summary>
         /// A reference to the lookup table.
         /// </summary>
-        private readonly ushort[] _lookupTable;
+        private readonly uint[] _lookupTable;
 
         /// <summary>
         /// The CRC-32 algorithm definition.
@@ -34,78 +34,71 @@ namespace Nito.CRCs
         /// <summary>
         /// The current value of the remainder.
         /// </summary>
-        private ushort _remainder;
+        private uint _remainder;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="CRC16"/> class with the specified definition and lookup table.
+        /// Initializes a new instance of the <see cref="CRC32"/> class with the specified definition and lookup table.
         /// </summary>
-        /// <param name="definition">The CRC-16 algorithm definition. May not be <c>null</c>.</param>
+        /// <param name="definition">The CRC-32 algorithm definition. May not be <c>null</c>.</param>
         /// <param name="lookupTable">The lookup table. May not be <c>null</c>.</param>
-        public CRC16(Definition definition, ushort[] lookupTable)
+        public CRC32(Definition definition, uint[] lookupTable)
+            :base(32)
         {
             _ = definition ?? throw new ArgumentNullException(nameof(definition));
             _ = lookupTable ?? throw new ArgumentNullException(nameof(lookupTable));
             if (lookupTable.Length != 256)
                 throw new ArgumentException($"{nameof(lookupTable)} must have 256 entries, but it has {lookupTable.Length} entries.", nameof(lookupTable));
 
-#if !NETSTANDARD1_3
-            HashSizeValue = 16;
-#endif
             _definition = definition;
             _lookupTable = lookupTable;
             Initialize();
         }
 
-#if NETSTANDARD1_3
-        /// <inheritdoc/>
-        public override int HashSize => 16;
-#endif
-
         /// <summary>
-        /// Initializes a new instance of the <see cref="CRC16"/> class with the specified definition.
+        /// Initializes a new instance of the <see cref="CRC32"/> class with the specified definition.
         /// </summary>
-        /// <param name="definition">The CRC-16 algorithm definition.</param>
-        public CRC16(Definition definition)
+        /// <param name="definition">The CRC-32 algorithm definition. May not be <c>null</c>.</param>
+        public CRC32(Definition definition)
             : this(definition, FindOrGenerateLookupTable(definition))
         {
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="CRC16"/> class with the default definition.
+        /// Initializes a new instance of the <see cref="CRC32"/> class with the default definition. Note that the "default" CRC-32 definition is an older IEEE recommendation and there are better polynomials for new protocols.
         /// </summary>
-        public CRC16()
+        public CRC32()
             : this(Definition.Default)
         {
         }
 
         /// <summary>
-        /// Gets the result of the CRC-16 algorithm.
+        /// Gets the result of the CRC-32 algorithm.
         /// </summary>
-        public ushort Result
+        public uint Result
         {
             get
             {
                 if (_definition.ReverseResultBeforeFinalXor != _definition.ReverseDataBytes)
                 {
-                    return (ushort)(HackersDelight.Reverse(_remainder) ^ _definition.FinalXorValue);
+                    return HackersDelight.Reverse(_remainder) ^ _definition.FinalXorValue;
                 }
                 else
                 {
-                    return (ushort)(_remainder ^ _definition.FinalXorValue);
+                    return _remainder ^ _definition.FinalXorValue;
                 }
             }
         }
 
         /// <summary>
-        /// Searches the known lookup tables for one matching the given CRC-16 definition; if none is found, a new lookup table is generated and added to the known lookup tables.
+        /// Searches the known lookup tables for one matching the given CRC-32 definition; if none is found, a new lookup table is generated and added to the known lookup tables.
         /// </summary>
-        /// <param name="definition">The CRC-16 definition. May not be <c>null</c>.</param>
-        /// <returns>The lookup table for the given CRC-16 definition.</returns>
-        public static ushort[] FindOrGenerateLookupTable(Definition definition)
+        /// <param name="definition">The CRC-32 definition.</param>
+        /// <returns>The lookup table for the given CRC-32 definition.</returns>
+        public static uint[] FindOrGenerateLookupTable(Definition definition)
         {
             _ = definition ?? throw new ArgumentNullException(nameof(definition));
 
-            ConcurrentDictionary<ushort, ushort[]> tables;
+            ConcurrentDictionary<uint, uint[]> tables;
             if (definition.ReverseDataBytes)
             {
                 tables = ReversedLookupTables;
@@ -120,31 +113,31 @@ namespace Nito.CRCs
         }
 
         /// <summary>
-        /// Generates a lookup table for a CRC-16 algorithm definition. Both <see cref="Definition.TruncatedPolynomial"/> and <see cref="Definition.ReverseDataBytes"/> are used in the calculations.
+        /// Generates a lookup table for a CRC-32 algorithm definition. Both <see cref="Definition.TruncatedPolynomial"/> and <see cref="Definition.ReverseDataBytes"/> are used in the calculations.
         /// </summary>
-        /// <param name="definition">The CRC-16 algorithm definition. May not be <c>null</c>.</param>
+        /// <param name="definition">The CRC-32 algorithm definition.</param>
         /// <returns>The lookup table.</returns>
-        public static ushort[] GenerateLookupTable(Definition definition)
+        public static uint[] GenerateLookupTable(Definition definition)
         {
             _ = definition ?? throw new ArgumentNullException(nameof(definition));
 
             unchecked
             {
-                ushort[] ret = new ushort[256];
+                uint[] ret = new uint[256];
 
                 byte dividend = 0;
                 do
                 {
-                    ushort remainder = 0;
+                    uint remainder = 0;
 
                     for (byte mask = 0x80; mask != 0; mask >>= 1)
                     {
                         if ((dividend & mask) != 0)
                         {
-                            remainder ^= 0x8000;
+                            remainder ^= 0x80000000;
                         }
 
-                        if ((remainder & 0x8000) != 0)
+                        if ((remainder & 0x80000000) != 0)
                         {
                             remainder <<= 1;
                             remainder ^= definition.TruncatedPolynomial;
@@ -174,7 +167,7 @@ namespace Nito.CRCs
         }
 
         /// <summary>
-        /// Initializes the CRC-16 calculations.
+        /// Initializes the CRC-32 calculations.
         /// </summary>
         public override void Initialize()
         {
@@ -194,30 +187,15 @@ namespace Nito.CRCs
         /// <returns>A <see cref="System.String"/> that represents this instance.</returns>
         public override string ToString()
         {
-            return "0x" + Result.ToString("X4", CultureInfo.InvariantCulture);
+            return "0x" + Result.ToString("X8", CultureInfo.InvariantCulture);
         }
 
-        /// <inheritdoc/>
-        protected override void HashCore(byte[] array, int offset, int count)
-        {
-            _ = array ?? throw new ArgumentNullException(nameof(array));
-            if (offset < 0)
-                throw new ArgumentException($"{nameof(offset)} must be greater than or equal to 0, but is equal to {offset}.");
-            if (count < 0)
-                throw new ArgumentException($"{nameof(count)} must be greater than or equal to 0, but is equal to {count}.");
-            if (count > array.Length)
-                throw new ArgumentException($"{nameof(count)} must be less than or equal to the length of {nameof(array)} ({array.Length}), but is equal to {count}.");
-            if (offset > array.Length - count)
-                throw new ArgumentException($"{nameof(offset)} must be less than or equal to the length of {nameof(array)} ({array.Length}) minus {nameof(count)} ({count}), but is equal to {offset}.");
-
-            DoHashCore(array.AsSpan().Slice(offset, count));
-        }
-
-        private void DoHashCore(ReadOnlySpan<byte> source)
+        /// <inheritdoc />
+        protected override void DoHashCore(ReadOnlySpan<byte> source)
         {
             unchecked
             {
-                ushort remainder = _remainder;
+                uint remainder = _remainder;
                 for (int i = 0; i != source.Length; ++i)
                 {
                     byte index = ReflectedIndex(remainder, source[i]);
@@ -229,25 +207,8 @@ namespace Nito.CRCs
             }
         }
 
-#if !NETSTANDARD1_3 && !NETSTANDARD2_0
-        /// <inheritdoc/>
-        protected override void HashCore(ReadOnlySpan<byte> source) => DoHashCore(source);
-#endif
-
-        /// <inheritdoc/>
-        protected override byte[] HashFinal()
-        {
-            return BitConverter.GetBytes(Result);
-        }
-
-#if !NETSTANDARD1_3 && !NETSTANDARD2_0
-        /// <inheritdoc/>
-        protected override bool TryHashFinal(Span<byte> destination, out int bytesWritten)
-        {
-            bytesWritten = 2;
-            return BitConverter.TryWriteBytes(destination, Result);
-        }
-#endif
+        /// <inheritdoc />
+        protected override void DoHashFinal(Span<byte> destination) => BinaryPrimitives.WriteUInt32LittleEndian(destination, Result);
 
         /// <summary>
         /// Gets the index into the lookup array for a given remainder and data byte. Data byte reversal is taken into account.
@@ -255,7 +216,7 @@ namespace Nito.CRCs
         /// <param name="remainder">The current remainder.</param>
         /// <param name="data">The data byte.</param>
         /// <returns>The index into the lookup array.</returns>
-        private byte ReflectedIndex(ushort remainder, byte data)
+        private byte ReflectedIndex(uint remainder, byte data)
         {
             unchecked
             {
@@ -265,7 +226,7 @@ namespace Nito.CRCs
                 }
                 else
                 {
-                    return (byte)((remainder >> 8) ^ data);
+                    return (byte)((remainder >> 24) ^ data);
                 }
             }
         }
@@ -275,28 +236,28 @@ namespace Nito.CRCs
         /// </summary>
         /// <param name="remainder">The remainder value.</param>
         /// <returns>The shifted remainder value.</returns>
-        private ushort ReflectedShift(ushort remainder)
+        private uint ReflectedShift(uint remainder)
         {
             unchecked
             {
                 if (_definition.ReverseDataBytes)
                 {
-                    return (ushort)(remainder >> 8);
+                    return remainder >> 8;
                 }
                 else
                 {
-                    return (ushort)(remainder << 8);
+                    return remainder << 8;
                 }
             }
         }
 
         /// <summary>
-        /// Holds parameters for a CRC-16 algorithm.
+        /// Holds parameters for a CRC-32 algorithm.
         /// </summary>
         public sealed class Definition
         {
             /// <summary>
-            /// Gets a common CRC-16, used by ARC and LHA.
+            /// Gets a CRC-32 defined by the old IEEE standard; used by Ethernet, zip, PNG, etc. Note that this "default" CRC-32 definition is an older IEEE recommendation and there are better polynomials for new protocols. Known as "CRC-32", "CRC-32/ADCCP", and "PKZIP".
             /// </summary>
             public static Definition Default
             {
@@ -304,7 +265,9 @@ namespace Nito.CRCs
                 {
                     return new Definition
                     {
-                        TruncatedPolynomial = 0x8005,
+                        TruncatedPolynomial = 0x04C11DB7,
+                        Initializer = 0xFFFFFFFF,
+                        FinalXorValue = 0xFFFFFFFF,
                         ReverseDataBytes = true,
                         ReverseResultBeforeFinalXor = true,
                     };
@@ -312,30 +275,33 @@ namespace Nito.CRCs
             }
 
             /// <summary>
-            /// Gets a CRC-16 used by floppy disk formats, commonly misidentified as CCITT.
+            /// Gets a CRC-32 used by BZIP2. Known as "CRC-32/BZIP2" and "B-CRC-32".
             /// </summary>
-            public static Definition CcittFalse
+            public static Definition BZip2
             {
                 get
                 {
                     return new Definition
                     {
-                        TruncatedPolynomial = 0x1021,
-                        Initializer = 0xFFFF,
+                        TruncatedPolynomial = 0x04C11DB7,
+                        Initializer = 0xFFFFFFFF,
+                        FinalXorValue = 0xFFFFFFFF,
                     };
                 }
             }
 
             /// <summary>
-            /// Gets a CRC-16 known as CCITT, used by Kermit. Appears in "Numerical Recipes in C".
+            /// Gets a modern CRC-32 defined in RFC 3720. Known as "CRC-32C", "CRC-32/ISCSI", and "CRC-32/CASTAGNOLI".
             /// </summary>
-            public static Definition Ccitt
+            public static Definition Castagnoli
             {
                 get
                 {
                     return new Definition
                     {
-                        TruncatedPolynomial = 0x1021,
+                        TruncatedPolynomial = 0x1EDC6F41,
+                        Initializer = 0xFFFFFFFF,
+                        FinalXorValue = 0xFFFFFFFF,
                         ReverseDataBytes = true,
                         ReverseResultBeforeFinalXor = true,
                     };
@@ -343,33 +309,59 @@ namespace Nito.CRCs
             }
 
             /// <summary>
-            /// Gets a CRC-16 used by XMODEM and ZMODEM. Appears in "Numerical Recipes in C".
+            /// Gets a CRC-32 used by the MPEG-2 standard. Known as "CRC-32/MPEG-2".
             /// </summary>
-            public static Definition XModem
+            public static Definition Mpeg2
             {
                 get
                 {
                     return new Definition
                     {
-                        TruncatedPolynomial = 0x1021,
+                        TruncatedPolynomial = 0x04C11DB7,
+                        Initializer = 0xFFFFFFFF,
                     };
                 }
             }
 
             /// <summary>
-            /// Gets a CRC-16 used by X.25, V.42, T.30, RFC 1171. Appears in "Numerical Recipes in C".
+            /// Gets a CRC-32 used by the POSIX "chksum" command; note that the chksum command-line program appends the file length to the contents unless it is empty. Known as "CRC-32/POSIX" and "CKSUM".
             /// </summary>
-            public static Definition X25
+            public static Definition Posix
             {
                 get
                 {
                     return new Definition
                     {
-                        TruncatedPolynomial = 0x1021,
-                        Initializer = 0xFFFF,
-                        FinalXorValue = 0xFFFF,
-                        ReverseDataBytes = true,
-                        ReverseResultBeforeFinalXor = true,
+                        TruncatedPolynomial = 0x04C11DB7,
+                        FinalXorValue = 0xFFFFFFFF,
+                    };
+                }
+            }
+
+            /// <summary>
+            /// Gets a CRC-32 used in the Aeronautical Information eXchange Model. Known as "CRC-32Q".
+            /// </summary>
+            public static Definition Aixm
+            {
+                get
+                {
+                    return new Definition
+                    {
+                        TruncatedPolynomial = 0x814141AB,
+                    };
+                }
+            }
+
+            /// <summary>
+            /// Gets a very old CRC-32, appearing in "Numerical Recipes in C". Known as "XFER".
+            /// </summary>
+            public static Definition Xfer
+            {
+                get
+                {
+                    return new Definition
+                    {
+                        TruncatedPolynomial = 0x000000AF,
                     };
                 }
             }
@@ -377,17 +369,17 @@ namespace Nito.CRCs
             /// <summary>
             /// Gets or sets the normal (non-reversed, non-reciprocal) polynomial to use for the CRC calculations.
             /// </summary>
-            public ushort TruncatedPolynomial { get; set; }
+            public uint TruncatedPolynomial { get; set; }
 
             /// <summary>
             /// Gets or sets the value to which the remainder is initialized at the beginning of the CRC calculation.
             /// </summary>
-            public ushort Initializer { get; set; }
+            public uint Initializer { get; set; }
 
             /// <summary>
             /// Gets or sets the value by which the remainder is XOR'ed at the end of the CRC calculation.
             /// </summary>
-            public ushort FinalXorValue { get; set; }
+            public uint FinalXorValue { get; set; }
 
             /// <summary>
             /// Gets or sets a value indicating whether incoming data bytes are reversed/reflected.
@@ -400,12 +392,12 @@ namespace Nito.CRCs
             public bool ReverseResultBeforeFinalXor { get; set; }
 
             /// <summary>
-            /// Creates a new <see cref="CRC16"/> instance using this definition.
+            /// Creates a new <see cref="CRC32"/> instance using this definition.
             /// </summary>
-            /// <returns>A new <see cref="CRC16"/> instance using this definition.</returns>
-            public CRC16 Create()
+            /// <returns>A new <see cref="CRC32"/> instance using this definition.</returns>
+            public CRC32 Create()
             {
-                return new CRC16(this);
+                return new CRC32(this);
             }
         }
     }

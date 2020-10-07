@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Xunit;
-using Nito.CRCs;
+using Nito.HashAlgorithms;
 
 namespace UnitTests
 {

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Nito.CRCs;
+using Nito.HashAlgorithms;
 using Xunit;
 
 namespace Tests.Unit_Tests

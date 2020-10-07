@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard1.3;netstandard2.0;netstandard2.1</TargetFrameworks>
+    <IsMetapackage>true</IsMetapackage>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Nito.HashAlgorithms.CRC\Nito.HashAlgorithms.CRC.csproj" />
+  </ItemGroup>
+
+</Project>

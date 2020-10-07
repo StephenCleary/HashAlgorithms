@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Nito.CRCs
+namespace Nito.HashAlgorithms
 {
     /// <summary>
     /// Helpful methods from the book <a href="http://www.amazon.com/gp/product/0201914654?ie=UTF8&amp;tag=stepheclearys-20&amp;linkCode=as2&amp;camp=1789&amp;creative=390957&amp;creativeASIN=0201914654">Hacker's Delight</a>.
