@@ -64,7 +64,7 @@ namespace Nito.HashAlgorithms
             return result;
         }
 
-#if !NETSTANDARD1_3 && !NETSTANDARD2_0
+#if !NETSTANDARD1_3 && !NETSTANDARD2_0 && !NET461
         /// <inheritdoc />
         protected override void HashCore(ReadOnlySpan<byte> source) => DoHashCore(source);
 
